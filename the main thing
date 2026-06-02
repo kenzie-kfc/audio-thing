@@ -1,0 +1,137 @@
+import random
+import sounddevice as sd
+import scipy.io.wavfile as wav
+import speech_recognition as sr
+from deep_translator import GoogleTranslator
+
+def main():
+    duration = 5 
+    sample_rate = 16000
+    sd.default.device = 1  
+
+    # --- GAME DATA & CRITERIA ---
+    words_by_level = {
+        "mudah": ["kucing", "anjing", "apel", "susu", "matahari"],
+        "sedang": ["pisang", "sekolah", "teman", "jendela", "kuning"],
+        "sulit": ["teknologi", "universitas", "informasi", "pengucapan", "imajinasi"]
+    }
+    
+    # 🇪🇸 Kunci Jawaban Spanyol
+    kunci_spanyol = {
+        "kucing": "gato", "anjing": "perro", "apel": "manzana", "susu": "leche", "matahari": "sol",
+        "pisang": "platano", "sekolah": "escuela", "teman": "amigo", "jendela": "ventana", "kuning": "amarillo",
+        "teknologi": "tecnologia", "universitas": "universidad", "informasi": "informacion", "pengucapan": "pronunciacion", "imajinasi": "imaginacion"
+    }
+
+    # 🇮🇹 : Kunci Jawaban Italia
+    kunci_italia = {
+        "kucing": "gatto", "anjing": "cane", "apel": "mela", "susu": "latte", "matahari": "sole",
+        "pisang": "banana", "sekolah": "scuola", "teman": "amico", "jendela": "finestra", "kuning": "giallo",
+        "teknologi": "tecnologia", "universitas": "universita", "informasi": "informazione", "pengucapan": "pronuncia", "imajinasi": "immaginazione"
+    }
+    
+    skor = 0
+    kesalahan = 0
+    maks_kesalahan = 3
+
+    print("=========================================")
+    print("  🌍  GAME: BICARA DENGAN BENAR  🌍  ")
+    print("         VS Code Desktop Edition         ")
+    print("=========================================")
+    
+    # 1. Difficulty Setup
+    print("Pilih Tingkat Kesulitan (mudah / sedang / sulit):")
+    level = input("Masukkan level: ").lower().strip()
+    if level not in words_by_level:
+        level = "mudah"
+        
+    daftar_kata = words_by_level[level]
+    print(f"🌱 Mode {level.upper()} diaktifkan! Jangan salah lebih dari 3 kali.\n")
+    
+    # 2. Main Game Loop
+    while kesalahan < maks_kesalahan:
+        kata_target = random.choice(daftar_kata)
+        
+        print("\n-----------------------------------------")
+        print(f"❌ Kesalahan: {kesalahan} / {maks_kesalahan} | 🏆 Skor: {skor}")
+        print(f"🤔 Bagaimana cara mengucapkan '{kata_target}'?")
+        print("-----------------------------------------")
+        
+        # --- AUDIO RECORDING ---
+        print("Speak now...")
+        recording = sd.rec(
+            int(duration * sample_rate), 
+            samplerate=sample_rate, 
+            channels=1, 
+            dtype="int16"
+        )
+        sd.wait()  
+        
+        wav.write("output.wav", sample_rate, recording)
+        print("Rekaman selesai, memulai pengenalan suara...")
+        
+        # --- SPEECH RECOGNITION ---
+        recognizer = sr.Recognizer()
+        with sr.AudioFile("output.wav") as source:
+            audio = recognizer.record(source)
+            
+        try:
+            text = recognizer.recognize_google(audio, language="id-ID")
+            text_clean = text.lower().strip()
+            print("Kamu mengatakan :", text)
+            
+            # language
+            lang = input("Ingin diterjemahkan ke bahasa apa? (e.g., 'it' Italia, 'es' Spanyol): ").lower().strip()
+
+            translated_text = GoogleTranslator(source='id', target=lang).translate(text_clean)
+            translated_clean = translated_text.lower().strip()
+            
+            # Force player to guess before revealing the answer
+            user_speech = input(f"Tebak! Apa kata '{kata_target}' dalam bahasa {lang.upper()}: ").lower().strip()
+            
+            print("-----------------------------------------")
+            print("🌍 Terjemahan sistem asli:", translated_clean)
+            
+            # --- EVALUATION AND SCORING ---
+            if lang == "es":
+                jawaban_benar = kunci_spanyol[kata_target]
+                if user_speech == jawaban_benar:
+                    print("🎉 BENAR! Pengucapan & Terjemahan Spanyol kamu 100% tepat! (+10 Skor)")
+                    skor = skor + 10
+                else:
+                    print(f"❌ KURANG TEPAT! Harusnya: {jawaban_benar}")
+                    kesalahan = kesalahan + 1
+                    
+            elif lang == "it":
+                jawaban_benar = kunci_italia[kata_target]
+                if user_speech == jawaban_benar:
+                    print("🇮🇹 PERFETTO! Pengucapan & Terjemahan Italia kamu 100% tepat! (+10 Skor)")
+                    skor = skor + 10
+                else:
+                    print(f"❌ KURANG TEPAT! Harusnya: {jawaban_benar}")
+                    kesalahan = kesalahan + 1
+            else:
+                print("❌ Kode bahasa tidak dikenal! Gunakan 'es' atau 'it'.")
+                kesalahan = kesalahan + 1
+                
+        except sr.UnknownValueError:
+            print("❌ Suara tidak dapat dikenali (Coba bicara lebih dekat/jelas)")
+            kesalahan = kesalahan + 1
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            
+        opsi = input("\nIngin lanjut bermain? (y/n): ").lower().strip()
+        if opsi == 'n':
+            break
+
+    # 3. Game Over Logic
+    print("\n=========================================")
+    if kesalahan >= maks_kesalahan:
+        print("💀 GAME OVER! Kamu sudah salah 3 kali. Belajar lagi ya! 💀")
+    else:
+        print("🏆 PERMAINAN SELESAI! Latihan selesai dengan sukses. 🏆")
+    print(f"📊 Skor Akhir Anda: {skor}")
+    print("=========================================")
+
+if __name__ == "__main__":
+    main()
